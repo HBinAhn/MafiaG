@@ -9,6 +9,8 @@ import java.io.*;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
+import java.nio.charset.StandardCharsets;
+
 
 public class PlayUI extends JFrame implements ActionListener {
 	static Socket sock;
@@ -16,7 +18,8 @@ public class PlayUI extends JFrame implements ActionListener {
 	static BufferedReader br = null;
 
 	private DefaultListModel<String> participantModel;
-	private JTextArea rankingArea;
+//	private JTextArea rankingArea;
+	private RankingPanel rankingPanel;
 	private JTextField chatInput;
 	private JTextPane chatPane;
 	private StyledDocument doc;
@@ -24,12 +27,25 @@ public class PlayUI extends JFrame implements ActionListener {
 	private JComboBox<String> voteChoice;
 	private JButton voteBtn;
 	private JLabel timerLabel;
+	
+	// 튜토리얼 관련
+	private JPanel chatContainerCards; // CardLayout이 적용된 패널
+	private CardLayout cardLayout;
 
 	private String myColor = "";
 	private boolean gameStarted = false;
 
-	private final Map<String, String> colorToNameMap = Map.of("#FF6B6B", "빨강 유저", "#6BCB77", "초록 유저", "#4D96FF",
-			"파랑 유저", "#FFC75F", "노랑 유저", "#A66DD4", "보라 유저", "#FF9671", "오렌지 유저", "#00C9A7", "청록 유저");
+
+	private final Map<String, String> colorToNameMap = new HashMap<String, String>() {{
+	    put("#FF6B6B", "빨강 유저");
+	    put("#6BCB77", "초록 유저");
+	    put("#4D96FF", "파랑 유저");
+	    put("#FFC75F", "노랑 유저");
+	    put("#A66DD4", "보라 유저");
+	    put("#FF9671", "오렌지 유저");
+	    put("#00C9A7", "청록 유저");
+	}};
+
 	private final Map<String, String> nameToColorMap = new HashMap<>();
 	
 
@@ -84,21 +100,27 @@ public class PlayUI extends JFrame implements ActionListener {
 		JPanel header = new JPanel(new BorderLayout());
 		header.setBackground(new Color(238, 238, 238));
 		header.setBorder(new EmptyBorder(10, 20, 10, 20));
-		header.add(new JLabel("익명 마피아 게임", SwingConstants.LEFT), BorderLayout.WEST);
+		header.add(new JLabel("MafiaG", SwingConstants.LEFT), BorderLayout.WEST);
 		add(header, BorderLayout.NORTH);
 
 		JPanel mainPanel = new JPanel(new BorderLayout());
 		add(mainPanel, BorderLayout.CENTER);
+		
 
 		JPanel sidebar = new JPanel(new BorderLayout());
 		sidebar.setPreferredSize(new Dimension(200, 0));
 		sidebar.setBackground(new Color(240, 234, 255));
 
-		rankingArea = new JTextArea("랭킹\n", 5, 20);
-		rankingArea.setEditable(false);
-		JScrollPane rankingScroll = new JScrollPane(rankingArea);
-		rankingScroll.setBorder(BorderFactory.createTitledBorder("랭킹"));
+		// 랭킹창
+		JPanel sidebarContent = new JPanel(new BorderLayout());  // 선언 먼저
+//		rankingArea = new JTextArea("랭킹\n", 5, 20);
+//		rankingArea.setEditable(false);
+//		JScrollPane rankingScroll = new JScrollPane(rankingArea);
+//		rankingScroll.setBorder(BorderFactory.createTitledBorder("랭킹"));
+		rankingPanel = new RankingPanel();
+		sidebarContent.add(rankingPanel, BorderLayout.NORTH);
 
+		// 참여자 명단
 		participantModel = new DefaultListModel<>();
 		JList<String> participantList = new JList<>(participantModel);
 		JScrollPane participantScroll = new JScrollPane(participantList);
@@ -112,20 +134,38 @@ public class PlayUI extends JFrame implements ActionListener {
 			sendToServer("{\"type\":\"start\"}");
 		});
 
-		JPanel sidebarContent = new JPanel(new BorderLayout());
-		sidebarContent.add(rankingScroll, BorderLayout.NORTH);
+//		JPanel sidebarContent = new JPanel(new BorderLayout());
+//		sidebarContent.add(rankingScroll, BorderLayout.NORTH);
 		sidebarContent.add(participantScroll, BorderLayout.CENTER);
 		sidebar.add(sidebarContent, BorderLayout.CENTER);
 		sidebar.add(startButton, BorderLayout.SOUTH);
 		mainPanel.add(sidebar, BorderLayout.WEST);
 
+		// 채팅창
+		// CardLayout을 위한 컨테이너
+		cardLayout = new CardLayout();
+		chatContainerCards = new JPanel(cardLayout);
+
+		// 튜토리얼 이미지
+		ImageIcon tutorialImage = new ImageIcon("src/img/TutorialSample.png"); // 파일 경로 맞춰서 수정
+		JLabel tutorialLabel = new JLabel(tutorialImage);
+		tutorialLabel.setHorizontalAlignment(JLabel.CENTER);
+		JPanel tutorialPanel = new JPanel(new BorderLayout());
+		tutorialPanel.add(tutorialLabel, BorderLayout.CENTER);
+
+		
 		JPanel chatContainer = new JPanel(new BorderLayout());
 		chatPane = new JTextPane();
 		chatPane.setEditable(false);
 		doc = chatPane.getStyledDocument();
 		JScrollPane chatScroll = new JScrollPane(chatPane);
 		chatContainer.add(chatScroll, BorderLayout.CENTER);
+		
+		// 기존 채팅창 패널을 카드에 추가
+		chatContainerCards.add(tutorialPanel, "tutorial");
+		chatContainerCards.add(chatContainer, "chat");
 
+		// 채팅 입력창 input text
 		JPanel inputPanel = new JPanel(new BorderLayout());
 		chatInput = new JTextField();
 		chatInput.setFont(new Font("맑은 고딕", Font.PLAIN, 16));
@@ -134,7 +174,8 @@ public class PlayUI extends JFrame implements ActionListener {
 		chatInput.addActionListener(this);
 		inputPanel.add(chatInput, BorderLayout.CENTER);
 		chatContainer.add(inputPanel, BorderLayout.SOUTH);
-		mainPanel.add(chatContainer, BorderLayout.CENTER);
+//		mainPanel.add(chatContainer, BorderLayout.CENTER); // 튜토리얼 이미지 반영 전
+		mainPanel.add(chatContainerCards, BorderLayout.CENTER);
 
 		JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
 		voteChoice = new JComboBox<>();
@@ -172,6 +213,7 @@ public class PlayUI extends JFrame implements ActionListener {
 		}
 	}
 
+
 	private void appendAnonymousChat(String colorCode, String msg) {
 		SimpleAttributeSet attr = new SimpleAttributeSet();
 		try {
@@ -191,15 +233,17 @@ public class PlayUI extends JFrame implements ActionListener {
 
 	private void connectToServer() {
 		try {
-			sock = new Socket("localhost", 3579);
-			bw = new BufferedWriter(new OutputStreamWriter(sock.getOutputStream()));
-			br = new BufferedReader(new InputStreamReader(sock.getInputStream()));
+			sock = new Socket("172.30.1.16", 3579);
+			br = new BufferedReader(new InputStreamReader(sock.getInputStream(), StandardCharsets.UTF_8));
+			bw = new BufferedWriter(new OutputStreamWriter(sock.getOutputStream(), StandardCharsets.UTF_8));
+
 
 			Thread serverThread = new Thread(() -> {
 				String line;
 				try {
 					while ((line = br.readLine()) != null) {
 						String finalLine = line;
+						
 						System.out.println("서버로부터: " + finalLine);
 
 						if (finalLine.contains("\"type\":\"INIT\"")) {
@@ -226,21 +270,30 @@ public class PlayUI extends JFrame implements ActionListener {
 							String msg = extractValue(finalLine, "message");
 							appendAnonymousChat(color, msg);
 						} else if (finalLine.contains("\"type\":\"REVEAL_RESULT\"")) {
-							appendAnonymousChat("#444444", "💬 답변 공개 완료!");
+						    appendAnonymousChat("#444444", "💬 답변 공개 완료!");
 
-							// ✅ JSON 파싱 (answers)
-							int start = finalLine.indexOf("\"answers\":[") + 11;
-							int end = finalLine.lastIndexOf("]}");
-							if (start != -1 && end != -1 && end > start) {
-								String answerData = finalLine.substring(start, end);
-								String[] items = answerData.split("\\},\\{");
+						    try {
+						        int start = finalLine.indexOf("\"answers\":[") + 11;
+						        int end = finalLine.lastIndexOf("]}");
+						        if (start != -1 && end != -1 && end > start) {
+						            String answerData = finalLine.substring(start, end + 1); // +1로 마지막 } 포함
+						            answerData = answerData.replaceAll("\\\\n", " ").replaceAll("\\\\\"", "\"");
 
-								for (String item : items) {
-									String color = extractValue("{" + item + "}", "color");
-									String message = extractValue("{" + item + "}", "message");
-									appendAnonymousChat(color, "💬 " + message);
-								}
-							}
+						            // ✅ 안전하게 JSON 객체별로 추출
+						            String[] items = answerData.split("\\},\\s*\\{");
+
+						            for (String item : items) {
+						                if (!item.startsWith("{")) item = "{" + item;
+						                if (!item.endsWith("}")) item = item + "}";
+
+						                String color = extractValue(item, "color");
+						                String message = extractValue(item, "message");
+						                appendAnonymousChat(color, "💬 " + message);
+						            }
+						        }
+						    } catch (Exception ex) {
+						        ex.printStackTrace();
+						    }
 						} else if (finalLine.contains("\"type\":\"PARTICIPANTS\"")) {
 							SwingUtilities.invokeLater(() -> {
 								voteChoice.removeAllItems();
@@ -268,8 +321,25 @@ public class PlayUI extends JFrame implements ActionListener {
 								chatInput.setEnabled(true);
 								chatInput.setBackground(Color.WHITE);
 								startButton.setEnabled(false);
+								
+								// 카드 전환: 튜토리얼 → 채팅창
+						        cardLayout.show(chatContainerCards, "chat");
 							});
+						}else if (finalLine.contains("\"type\":\"FINAL_RESULT\"")) {
+						    String msg = extractValue(finalLine, "message");
+						    SwingUtilities.invokeLater(() -> {
+						        appendAnonymousChat("#000000", msg);
+
+						        // 게임 종료 시점에 UI 비활성화 처리
+						        chatInput.setEnabled(false);
+						        chatInput.setBackground(Color.LIGHT_GRAY);
+						        voteChoice.setEnabled(false);
+						        voteBtn.setEnabled(false);
+						        startButton.setEnabled(false);
+						        timerLabel.setText("게임 종료");
+						    });
 						}
+
 					}
 				} catch (IOException e) {
 					System.out.println("서버 연결 종료됨");

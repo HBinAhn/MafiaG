@@ -3,6 +3,7 @@ package MafiaG;
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import MafiaG.ConGemini;
 
 public class Server {
     static List<ClientHandler> clients = new ArrayList<>();
@@ -14,7 +15,7 @@ public class Server {
     static Set<String> votedUsers = new HashSet<>();
     static Map<String, String> answers = new HashMap<>();
     static int questionCount = 0;
-    static final int MAX_QUESTIONS = 5;
+    static final int MAX_QUESTIONS = 2;
 
     static List<String> questionList = Arrays.asList(
         "오늘 점심으로 뭘 먹을까요?",
@@ -26,10 +27,12 @@ public class Server {
         "요즘 빠진 취미는?",
         "혼자 여행 간다면 어디로 가고 싶나요?"
     );
+    static List<String> usedQuestions = new ArrayList<>();
     static Random random = new Random();
     static String currentQuestion = "";
 
     static boolean resultRevealed = false;
+    static boolean gameStarted = false;
 
     static ClientHandler geminiBot = null;
 
@@ -83,18 +86,30 @@ public class Server {
         broadcast(sb.toString());
     }
 
+    
+    static List<String> availableColors = new ArrayList<>(Arrays.asList(
+    		"#FF6B6B", "#6BCB77", "#4D96FF", "#FFC75F", "#A66DD4", "#FF9671", "#00C9A7"));
+    
     static String getRandomColor() {
-        String[] colors = {"#FF6B6B", "#6BCB77", "#4D96FF", "#FFC75F", "#A66DD4", "#FF9671", "#00C9A7"};
-        return colors[random.nextInt(colors.length)];
+    	if(availableColors.isEmpty()) {
+    		return "#888888"; // fallback (혹은 오류 처리)
+    	}
+        return availableColors.remove(random.nextInt(availableColors.size()));
     }
 
+    
+    
     static void startNextQuestion() {
         if (questionCount >= MAX_QUESTIONS) {
             broadcast("{\"type\":\"GAME_OVER\",\"message\":\"질문이 모두 완료되었습니다.\"}");
             return;
         }
+        
+        do {
+        	currentQuestion = questionList.get(random.nextInt(questionList.size()));
+        } while (usedQuestions.contains(currentQuestion));
 
-        currentQuestion = questionList.get(random.nextInt(questionList.size()));
+        usedQuestions.add(currentQuestion);
         questionCount++;
         resultRevealed = false;
 
@@ -131,13 +146,17 @@ public class Server {
         sb.append("{\"type\":\"REVEAL_RESULT\",\"question\":\"")
           .append(currentQuestion).append("\",\"answers\":[");
 
+        List<ClientHandler> shuffledClients = new ArrayList<>(clients);
+        Collections.shuffle(shuffledClients);
+        
         int i = 0;
-        for (ClientHandler client : clients) {
+        for (ClientHandler client : shuffledClients) {
             String answer = answers.get(client.nickname);
             if (answer == null) answer = "응답 없음";
+            answer = answer.replace("\n", " ").replace("\"", "\\\""); // 👈 핵심!
             sb.append("{\"color\":\"").append(client.colorCode)
               .append("\",\"message\":\"").append(answer).append("\"}");
-            if (++i < clients.size()) sb.append(",");
+            if (++i < shuffledClients.size()) sb.append(",");
         }
         sb.append("]}");
         broadcast(sb.toString());
@@ -149,6 +168,7 @@ public class Server {
         }, 1000);
     }
 
+
     static void checkAndRevealIfReady() {
     	if (answers.size() == clients.size() && !resultRevealed) {
             System.out.println("[서버] 모든 답변 제출됨 (하지만 20초 타이머까지 대기)");
@@ -159,31 +179,136 @@ public class Server {
     	//// 답변이 모두 제출되었지만, 20초가 되기 전이면 기다리기만 함 (아무 것도 안 함)
         // → 타이머가 20초 후에 공개하도록 유도
     }
+    
+    static final Map<String, String> colorNameMap = new HashMap<String, String>() {{
+        put("#FF6B6B", "빨강 유저");
+        put("#6BCB77", "초록 유저");
+        put("#4D96FF", "파랑 유저");
+        put("#FFC75F", "노랑 유저");
+        put("#A66DD4", "보라 유저");
+        put("#FF9671", "오렌지 유저");
+        put("#00C9A7", "청록 유저");
+    }};
+
+    static String getColorLabel(String color) {
+        return colorNameMap.getOrDefault(color, color + " 유저");
+    }
+
+
 
     static void broadcastVoteResult() {
-        String topColor = null;
+    	Map<String, Integer> voteCounts = new HashMap<>(voteMap);
         int maxVotes = 0;
-
-        for (Map.Entry<String, Integer> entry : voteMap.entrySet()) {
-            if (entry.getValue() > maxVotes) {
-                maxVotes = entry.getValue();
-                topColor = entry.getKey();
+        List<String> topColors = new ArrayList<>();
+        
+        for (Map.Entry<String, Integer> entry : voteCounts.entrySet()) {
+        	int votes =entry.getValue();
+        	if ( votes > maxVotes) {
+        		maxVotes = votes;
+        		topColors.clear();
+        		topColors.add(entry.getKey());
+        	} else if (votes == maxVotes) {
+                topColors.add(entry.getKey());
             }
         }
+        
+        for (Map.Entry<String, Integer> entry : voteMap.entrySet()) {
+            totalVoteMap.put(entry.getKey(),
+                totalVoteMap.getOrDefault(entry.getKey(), 0) + entry.getValue());
+        }
 
-        broadcast("{\"type\":\"chat\",\"color\":\"#000000\",\"message\":\"💡 투표 결과: " + topColor + " 유저가 " + maxVotes + "표를 받았습니다.\"}");
+        
+        List<String> namedWinners = new ArrayList<>();
+        for (String color : topColors) {
+            namedWinners.add(getColorLabel(color));
+        }
+
+        String winnerMsg = String.join(", ", namedWinners);
+        broadcast("{\"type\":\"chat\",\"color\":\"#000000\",\"message\":\"💡 투표 결과: " + winnerMsg + " 유저가 "
+            + maxVotes + "표를 받았습니다.\"}");
 
         new Timer().schedule(new TimerTask() {
             public void run() {
-                startNextQuestion(); // ✅ 다음 라운드 시작
+            	if (questionCount >= MAX_QUESTIONS) {
+            	    broadcastFinalVoteResult();
+            	} else {// ✅ 다음 라운드 시작
+            	    startNextQuestion();
+            	}
             }
         }, 3000);
     }
+    static Map<String, Integer> totalVoteMap = new HashMap<>();
+
+ // 최종 투표 결과 발표 메서드 수정 (동점자 전원 승리 처리)
+    static void broadcastFinalVoteResult() {
+    	
+        int maxVotes = 0;
+        List<String> topNicknames = new ArrayList<>();
+
+        for (Map.Entry<String, Integer> entry : totalVoteMap.entrySet()) {
+            int votes = entry.getValue();
+            if (votes > maxVotes) {
+                maxVotes = votes;
+                topNicknames.clear();
+                topNicknames.add(entry.getKey());
+            } else if (votes == maxVotes) {
+                topNicknames.add(entry.getKey());
+            }
+        }
+
+        StringBuilder message = new StringBuilder("🏁 최종 투표 결과: ");
+        for (String name : topNicknames) {
+            message.append(name).append(" ");
+        }
+        message.append("유저가 ").append(maxVotes).append("표를 받아 승리했습니다.");
+
+        broadcast("{\"type\":\"FINAL_RESULT\",\"message\":\"" + message + "\"}");
+
+        updateScores(topNicknames);  // 동점자 모두 전달
+    }
+
+    // 점수 반영 메서드 수정: 다수 승자 처리
+    static void updateScores(List<String> winners) {
+        List<String> participants = new ArrayList<>();
+
+        for (ClientHandler client : clients) {
+            if (client.nickname != null && !client.nickname.equals("Gemini")) {
+                participants.add(client.nickname);
+            }
+        }
+
+        try {
+            DB.DatabaseManager.updateScoresAfterGame(winners, participants);
+            System.out.println("[서버] 게임 점수 반영 완료!");
+        } catch (Exception e) {
+            System.out.println("[서버] 점수 반영 중 오류 발생: " + e.getMessage());
+        }
+    }
+
+
+    
+    
 
     static String generateGeminiAnswer(String question) {
-        String[] sample = {"비빔밥이요!", "고양이요!", "넷플릭스요!", "스페인이요!", "잔잔한 재즈요!"};
-        return sample[random.nextInt(sample.length)];
+        try {
+            // Gemini에게 짧게 답변하라고 요청하는 프롬프트 추가
+            String prompt = question + "\n\n위 질문에 대해 두 문장 이내로 간단하고 자연스럽게 대답해줘. 예를 들면 대화체처럼 말해줘.";
+            String answer = ConGemini.getResponse(prompt);
+
+            // 너무 긴 답변은 300자 이내로 자르기 (예외 방지용)
+            if (answer.length() > 300) {
+                answer = answer.substring(0, 300) + "...";
+            }
+
+            return answer;
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            return "Gemini 응답 실패: " + e.getMessage();
+        }
     }
+
+
 
     static class ClientHandler extends Thread {
         Socket socket;
@@ -241,6 +366,12 @@ public class Server {
             } finally {
                 try {
                     clients.remove(this);
+                    
+                 // ⭐️ 사용한 색상 되돌리기
+                    if (colorCode != null && !availableColors.contains(colorCode)) {
+                        availableColors.add(colorCode);
+                    }
+                    
                     broadcastParticipants();
                     if (br != null) br.close();
                     if (bw != null) bw.close();

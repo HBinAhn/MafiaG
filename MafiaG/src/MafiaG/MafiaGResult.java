@@ -17,7 +17,7 @@ public class MafiaGResult extends JFrame {
         this.isWinner = isWinner;
         this.scoreEarned = isWinner ? 5 : -1;
 
-        DatabaseManager.updateUserScore(username, scoreEarned);
+//        DB.DatabaseManager.updateUserScore(username, scoreEarned);
         int updatedScore = DatabaseManager.getUserScore(username);
 
         setTitle("MafiaG");
