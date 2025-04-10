@@ -1,20 +1,15 @@
 package MafiaG;
 
-import DB.UserScore;
-
 import javax.swing.*;
 import javax.swing.border.*;
 import DB.DatabaseManager;
 import java.awt.*;
 import java.io.IOException;
-import java.util.List;
 
 public class LoginUI {
 
 	public void showLoginUI() {
-		JFrame frame = new JFrame("MafiaG");
-		ImageIcon icon = new ImageIcon("src/img/logo.png"); // 로고 경로
-		frame.setIconImage(icon.getImage());
+		JFrame frame = new JFrame("로그인 UI");
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		frame.setSize(1200, 800);
 		frame.setLocationRelativeTo(null);
@@ -33,8 +28,8 @@ public class LoginUI {
 		logoPanel.setPreferredSize(new Dimension(400, 200));
 		logoPanel.setLayout(new BorderLayout());
 
-		ImageIcon logoIcon = new ImageIcon("src/img/logo.png");
-		Image logoImage = logoIcon.getImage().getScaledInstance(400, 200, Image.SCALE_SMOOTH);
+		ImageIcon logoIcon = new ImageIcon("../../MafiaG_logo.jpg");
+		Image logoImage = logoIcon.getImage().getScaledInstance(200, 100, Image.SCALE_SMOOTH);
 		JLabel logoLabel = new JLabel(new ImageIcon(logoImage), SwingConstants.CENTER);
 		logoPanel.add(logoLabel, BorderLayout.CENTER);
 
@@ -45,27 +40,14 @@ public class LoginUI {
 		rankingPanel.setPreferredSize(new Dimension(600, 150));
 		rankingPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-		JLabel rankingTitle = new JLabel("랭킹");
+		JLabel rankingTitle = new JLabel("🏆 랭킹");
 		rankingTitle.setFont(new Font("맑은 고딕", Font.BOLD, 18));
 		rankingTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
 		rankingPanel.add(rankingTitle);
 		rankingPanel.add(Box.createVerticalStrut(10));
-
-		// 랭킹 동적 로딩
-		Color[] rankColors = {
-			new Color(255, 215, 000),  // 1등
-			new Color(192, 192, 192),  // 2등
-			new Color(205, 127, 50 )   // 3등
-		};
-		String[] emojis = {"🥇 ", "🥈 ", "🥉 "};
-
-		List<UserScore> topRankers = DatabaseManager.getTopRankers(3);
-		for (int i = 0; i < topRankers.size(); i++) {
-			UserScore user = topRankers.get(i);
-			String displayName = emojis[i] + " " + user.getName();
-			String displayScore = user.getScore() + "점";
-			rankingPanel.add(createRankingItem(displayName, displayScore, rankColors[i]));
-		}
+		rankingPanel.add(createRankingItem("🥇 유재석", "980점", new Color(110, 168, 226)));
+		rankingPanel.add(createRankingItem("🥈 박명수", "920점", new Color(166, 150, 198)));
+		rankingPanel.add(createRankingItem("🥉 정준하", "870점", new Color(207, 136, 146)));
 
 		JPanel loginPanel = new JPanel();
 		loginPanel.setOpaque(false);
@@ -147,9 +129,7 @@ public class LoginUI {
 			String inputId = idField.getText();
 			String inputPw = new String(pwField.getPassword());
 
-			String nickname = DatabaseManager.checkLogin(inputId, inputPw);
-			boolean success = nickname != null;
-			
+			boolean success = DatabaseManager.checkLogin(inputId, inputPw);
 			System.out.println("로그인 시도: " + inputId + ", 성공 여부: " + success);
 
 			if (success) {
@@ -165,24 +145,17 @@ public class LoginUI {
 					pb.start();
 
 					System.out.println("서버 실행 성공");
-					
-					// 서버가 완전히 켜지기 전까지 1초 대기
-				    try {
-				        Thread.sleep(1000);
-				    } catch (InterruptedException ex) {
-				        ex.printStackTrace();
-				    }
 
 				} catch (IOException ex) {
 					ex.printStackTrace();
 					JOptionPane.showMessageDialog(null, "서버 실행에 실패했습니다: " + ex.getMessage());
 				}
 
-				// PlayUI 호출
-				SwingUtilities.invokeLater(() -> {
-					PlayUI playUI = new PlayUI();
-					playUI.setVisible(true); 
-				});
+//				new PlayUI(); // 게임 UI 실행
+		        SwingUtilities.invokeLater(() -> {
+		            PlayUI playUI = new PlayUI();
+		            playUI.setVisible(true); // 이걸 꼭 호출해야 화면이 나옴!
+		        });
 			} else {
 				errorLabel.setVisible(true);
 			}
@@ -226,4 +199,6 @@ public class LoginUI {
 			super.paintComponent(g);
 		}
 	}
+	
+	
 }

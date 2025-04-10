@@ -7,7 +7,7 @@ import java.awt.*;
 public class SignupUI extends JFrame {
 
     public SignupUI(Runnable onSignupComplete) {
-        setTitle("íšŒì›ê°€ì… í˜ì´ì§€");
+        setTitle("È¸¿ø°¡ÀÔ ÆäÀÌÁö");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1200, 800);
         setLocationRelativeTo(null);
@@ -15,6 +15,7 @@ public class SignupUI extends JFrame {
         JPanel contentPane = new JPanel();
         contentPane.setBackground(new Color(248, 248, 248));
         contentPane.setLayout(new GridBagLayout());
+        setContentPane(contentPane);
 
         JPanel centerBox = new JPanel();
         centerBox.setPreferredSize(new Dimension(560, 600));
@@ -33,17 +34,17 @@ public class SignupUI extends JFrame {
         formPanel.setLayout(new GridLayout(5, 1, 0, 10));
         formPanel.setOpaque(false);
 
-        formPanel.add(createInputGroup("ì•„ì´ë””", JTextField.class));
-        formPanel.add(createInputGroup("ë¹„ë°€ë²ˆí˜¸", JPasswordField.class));
-        formPanel.add(createInputGroup("ë¹„ë°€ë²ˆí˜¸ í™•ì¸", JPasswordField.class));
-        formPanel.add(createInputGroup("ë‹‰ë„¤ì„", JTextField.class));
-        formPanel.add(createInputGroup("ì´ë©”ì¼", JTextField.class));
+        formPanel.add(createInputGroup("¾ÆÀÌµğ", JTextField.class));
+        formPanel.add(createInputGroup("ºñ¹Ğ¹øÈ£", JPasswordField.class));
+        formPanel.add(createInputGroup("ºñ¹Ğ¹øÈ£ È®ÀÎ", JPasswordField.class));
+        formPanel.add(createInputGroup("´Ğ³×ÀÓ", JTextField.class));
+        formPanel.add(createInputGroup("ÀÌ¸ŞÀÏ", JTextField.class));
 
-        JButton signupButton = new JButton("íšŒì›ê°€ì… ì™„ë£Œ");
+        JButton signupButton = new JButton("È¸¿ø°¡ÀÔ ¿Ï·á");
         signupButton.setPreferredSize(new Dimension(0, 45));
         signupButton.setBackground(new Color(204, 230, 255));
         signupButton.setForeground(new Color(68, 68, 68));
-        signupButton.setFont(new Font("ë§‘ì€ ê³ ë”•", Font.BOLD, 16));
+        signupButton.setFont(new Font("¸¼Àº °íµñ", Font.BOLD, 16));
         signupButton.setFocusPainted(false);
         signupButton.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
         signupButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
@@ -59,28 +60,28 @@ public class SignupUI extends JFrame {
         });
 
         signupButton.addActionListener(e -> {
-            // ì…ë ¥ê°’ ê°€ì ¸ì˜¤ê¸°
+            // ÀÔ·Â°ª °¡Á®¿À±â
             String id = ((JTextField)((JPanel) formPanel.getComponent(0)).getComponent(1)).getText();
             String pw = new String(((JPasswordField)((JPanel) formPanel.getComponent(1)).getComponent(1)).getPassword());
             String pwConfirm = new String(((JPasswordField)((JPanel) formPanel.getComponent(2)).getComponent(1)).getPassword());
             String nickname = ((JTextField)((JPanel) formPanel.getComponent(3)).getComponent(1)).getText();
             String email = ((JTextField)((JPanel) formPanel.getComponent(4)).getComponent(1)).getText();
 
-            // ë¹„ë°€ë²ˆí˜¸ í™•ì¸
+            // ºñ¹Ğ¹øÈ£ È®ÀÎ
             if (!pw.equals(pwConfirm)) {
-                JOptionPane.showMessageDialog(SignupUI.this, "ë¹„ë°€ë²ˆí˜¸ê°€ ì¼ì¹˜í•˜ì§€ ì•ŠìŠµë‹ˆë‹¤.");
+                JOptionPane.showMessageDialog(SignupUI.this, "ºñ¹Ğ¹øÈ£°¡ ÀÏÄ¡ÇÏÁö ¾Ê½À´Ï´Ù.");
                 return;
             }
 
-            // DBì— íšŒì›ì •ë³´ ì €ì¥
+            // DB¿¡ È¸¿øÁ¤º¸ ÀúÀå
             boolean success = DB.DatabaseManager.insertNewMember(id, pw, nickname, email);
 
             if (success) {
-                JOptionPane.showMessageDialog(SignupUI.this, "íšŒì›ê°€ì…ì´ ì™„ë£Œë˜ì—ˆìŠµë‹ˆë‹¤.");
-                dispose(); // ì°½ ë‹«ê¸°
-                onSignupComplete.run(); // ë¡œê·¸ì¸ í™”ë©´ìœ¼ë¡œ ì´ë™
+                JOptionPane.showMessageDialog(SignupUI.this, "È¸¿ø°¡ÀÔÀÌ ¿Ï·áµÇ¾ú½À´Ï´Ù.");
+                dispose(); // Ã¢ ´İ±â
+                onSignupComplete.run(); // ·Î±×ÀÎ È­¸éÀ¸·Î ÀÌµ¿
             } else {
-                JOptionPane.showMessageDialog(SignupUI.this, "íšŒì›ê°€ì…ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤. ë‹¤ì‹œ ì‹œë„í•´ì£¼ì„¸ìš”.");
+                JOptionPane.showMessageDialog(SignupUI.this, "È¸¿ø°¡ÀÔ¿¡ ½ÇÆĞÇß½À´Ï´Ù. ´Ù½Ã ½ÃµµÇØÁÖ¼¼¿ä.");
             }
         });	
         
@@ -105,7 +106,7 @@ public class SignupUI extends JFrame {
 
         JLabel label = new JLabel(labelText);
         label.setPreferredSize(new Dimension(120, 40));
-        label.setFont(new Font("ë§‘ì€ ê³ ë”•", Font.BOLD, 14));
+        label.setFont(new Font("¸¼Àº °íµñ", Font.BOLD, 14));
         label.setForeground(new Color(51, 51, 51));
         label.setHorizontalAlignment(SwingConstants.LEFT);
 
@@ -116,7 +117,7 @@ public class SignupUI extends JFrame {
             input = new JTextField();
         }
         input.setPreferredSize(new Dimension(240, 40));
-        input.setFont(new Font("ë§‘ì€ ê³ ë”•", Font.PLAIN, 16));
+        input.setFont(new Font("¸¼Àº °íµñ", Font.PLAIN, 16));
         input.setBackground(new Color(227, 232, 236));
         input.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
 
