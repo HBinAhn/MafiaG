@@ -80,13 +80,37 @@ public class Server {
     static void broadcastParticipants() {
         StringBuilder sb = new StringBuilder();
         sb.append("{\"type\":\"PARTICIPANTS\",\"list\":[");
-        for (int i = 0; i < clients.size(); i++) {
-            sb.append("{\"nickname\":\"").append(clients.get(i).nickname)
-              .append("\",\"color\":\"").append(clients.get(i).colorCode).append("\"}");
-            if (i != clients.size() - 1) sb.append(",");
+        boolean firstEntry = true;
+        // 클라이언트 목록 복사 후 순회 (동시성 문제 방지 - 더 안전하게 하려면 Collections.synchronizedList 사용 고려)
+        List<ClientHandler> currentClients = new ArrayList<>(clients);
+        for (ClientHandler client : currentClients) {
+            // --- ❗ 닉네임 결정 로직 추가 ❗ ---
+            String displayName;
+            if (client instanceof GeminiBot) {
+                displayName = "Gemini"; // Gemini 봇은 "Gemini"로 표시
+            } else if (client.permanentNickname != null && !client.permanentNickname.isEmpty()) {
+                displayName = client.permanentNickname; // 실제 닉네임이 있으면 사용
+            } else {
+                displayName = client.nickname; // 실제 닉네임 없으면 임시 닉네임 사용 (IDENTIFY 전 등)
+                // IDENTIFY가 정상적으로 이루어졌다면 이 경우는 거의 발생하지 않아야 함
+                System.out.println("[서버 경고] broadcastParticipants: 클라이언트(" + client.nickname + ")의 permanentNickname 없음.");
+            }
+            String color = client.colorCode;
+            // --- 닉네임 결정 로직 끝 ---
+
+            // 첫 항목 아니면 콤마 추가
+            if (!firstEntry) {
+                sb.append(",");
+            }
+            // JSON에 displayName 사용 및 escape 처리
+            sb.append("{\"nickname\":\"").append(escapeJson(displayName))
+              .append("\",\"color\":\"").append(color).append("\"}");
+            firstEntry = false;
         }
         sb.append("]}");
-        broadcast(sb.toString());
+        String messageToSend = sb.toString(); // 최종 메시지
+        System.out.println("[서버] 브로드캐스팅 PARTICIPANTS: " + messageToSend); // 전송 내용 로그
+        broadcast(messageToSend); // 모든 클라이언트에게 전송
     }
 
     

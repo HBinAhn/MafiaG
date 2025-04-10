@@ -301,4 +301,45 @@ public class DatabaseManager {
             return null;
         }
     }
+    
+ // --- ❗ 새로운 메소드: 나의 랭킹 조회 (member_id 기준) ❗ ---
+    public static int getMyRank(String memberId) {
+        // memberId가 null이거나 유효하지 않은 경우 기본값 반환 (예: -1 또는 0)
+        if (memberId == null || memberId.isEmpty()) {
+             System.err.println("[DB 경고] getMyRank: 유효하지 않은 memberId 입니다.");
+             return -1;
+        }
+
+        // 자신의 점수보다 높은 점수를 가진 사람의 수를 세어 랭킹 계산 (+1)
+        // 동점자 처리가 필요하면 더 복잡한 쿼리 또는 로직 필요
+        String sql = "SELECT COUNT(*) + 1 AS myRank FROM member WHERE score > (SELECT score FROM member WHERE member_id = ?)";
+        int rank = -1; // 기본값 -1 (오류 또는 사용자 없음)
+
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, memberId);
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                rank = rs.getInt("myRank");
+            } else {
+                // 이 경우는 보통 발생하지 않음 (COUNT(*)는 항상 행을 반환)
+                System.err.println("[DB 경고] getMyRank: 랭킹 조회 중 예외 상황 발생 (member_id: " + memberId + ")");
+            }
+            // 만약 member_id = ? 에 해당하는 유저가 없다면 score 비교가 불가하여 SQLException 발생 가능성 있음
+            // -> try-catch 로 처리됨
+
+        } catch (SQLException e) {
+            // member_id에 해당하는 유저가 없거나 DB 오류 발생 시
+            if (e.getMessage().contains("Subquery returns more than 1 row")) {
+                 System.err.println("[DB 오류] getMyRank: member_id '" + memberId + "'에 해당하는 사용자가 없거나 score가 null일 수 있습니다.");
+            } else {
+                 System.err.println("[DB 오류] getMyRank 실행 중 오류 발생: member_id=" + memberId);
+                 e.printStackTrace();
+            }
+            rank = -1; // 오류 발생 시 -1 반환
+        }
+        return rank; // 조회된 랭킹 또는 오류 시 -1 반환
+    }
 }

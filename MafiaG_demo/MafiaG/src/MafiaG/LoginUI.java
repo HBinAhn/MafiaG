@@ -143,76 +143,85 @@ public class LoginUI {
 		frame.setVisible(true);
 
 		// 로그인 버튼 클릭 시
-		loginBtn.addActionListener(e -> {
-			String inputId = idField.getText();
-			String inputPw = new String(pwField.getPassword());
+		// 로그인 버튼 클릭 시
+				loginBtn.addActionListener(e -> {
+					String inputId = idField.getText();
+					String inputPw = new String(pwField.getPassword());
 
-            // 1. 로그인 시도 및 실제 닉네임 확보
-			String nickname = DatabaseManager.checkLogin(inputId, inputPw); // nickname 변수에 실제 닉네임 저장됨
-			boolean success = nickname != null;
+		            // 1. 로그인 시도 및 실제 닉네임 확보
+					String nickname = DatabaseManager.checkLogin(inputId, inputPw); // nickname 변수에 실제 닉네임 저장됨
+					boolean success = nickname != null;
 
-			System.out.println("로그인 시도: " + inputId + ", 성공 여부: " + success);
+					System.out.println("로그인 시도: " + inputId + ", 성공 여부: " + success);
 
-			if (success) {
-				JOptionPane.showMessageDialog(frame, "로그인 성공!", "성공", JOptionPane.INFORMATION_MESSAGE);
-				frame.dispose(); // 현재 로그인 창 닫기
+					if (success) {
+						JOptionPane.showMessageDialog(frame, "로그인 성공!", "성공", JOptionPane.INFORMATION_MESSAGE);
+						frame.dispose(); // 현재 로그인 창 닫기
 
-                // --- 서버 실행 로직 (클래스패스 설정 포함) ---
-				try {
-					System.out.println("서버 실행 시도");
+		                // --- ❗ 로그인 성공 후 member_id 및 랭킹 조회 추가 ❗ ---
+		                String loggedInNickname = nickname; // 가독성을 위해 변수명 변경
+		                String memberId = DatabaseManager.getMemberIdFromNickname(loggedInNickname); // 실제 닉네임으로 member_id 조회
+		                int myRank = -1; // 기본 랭킹값
+		                if (memberId != null) {
+		                    myRank = DatabaseManager.getMyRank(memberId); // member_id로 랭킹 조회
+		                    System.out.println("[LoginUI] 사용자 정보: ID=" + memberId + ", Nick=" + loggedInNickname + ", Rank=" + myRank);
+		                } else {
+		                     System.err.println("[LoginUI 오류] 로그인 성공했으나 member_id를 찾을 수 없음: " + loggedInNickname);
+		                     // member_id가 없으면 랭킹 조회 불가
+		                }
+		                // --- 조회 끝 ---
 
-                    // 2. 서버 실행을 위한 클래스패스 설정 (libs 폴더 및 JAR 파일명 확인!)
-                    String jarFolderName = "libs"; // <-- 실제 폴더 이름 확인! (lib? libs?)
-                    String jarFileName = "mysql-connector-j-8.0.33.jar"; // <-- 실제 JAR 파일 이름 확인!
-					String jdbcPath = jarFolderName + "/" + jarFileName;
-					String separator = System.getProperty("path.separator");
-					String classPath = "bin" + separator + jdbcPath;
-                    //    다른 라이브러리(okhttp, okio 등)도 서버에서 필요하면 여기에 추가
-                    //    String okhttpPath = "libs/okhttp-3.14.9.jar";
-                    //    String okioPath = "libs/okio-1.17.5.jar";
-                    //    classPath += separator + okhttpPath + separator + okioPath;
+		                // --- 서버 실행 로직 (절대 경로 및 작업 디렉토리 설정 권장 - 이전 답변 참고) ---
+						try {
+							System.out.println("서버 실행 시도");
 
-                    System.out.println("  사용될 서버 클래스패스: " + classPath); // 설정값 로그 확인
+							// 2. 서버 실행을 위한 클래스패스 설정 (libs 폴더 및 JAR 파일명 확인!)
+		                    String jarFolderName = "libs"; // <-- 실제 폴더 이름 확인! (lib? libs?)
+		                    String jarFileName = "mysql-connector-j-8.0.33.jar"; // <-- 실제 JAR 파일 이름 확인!
+							String jdbcPath = jarFolderName + "/" + jarFileName;
+							String separator = System.getProperty("path.separator");
+							String classPath = "bin" + separator + jdbcPath;
+		                    //    다른 라이브러리(okhttp, okio 등)도 서버에서 필요하면 여기에 추가
+		                    //    String okhttpPath = "libs/okhttp-3.14.9.jar";
+		                    //    String okioPath = "libs/okio-1.17.5.jar";
+		                    //    classPath += separator + okhttpPath + separator + okioPath;
 
-					ProcessBuilder pb = new ProcessBuilder(
-					    "java",
-					    "-cp",
-					    classPath, // 조합된 클래스패스 사용
-					    "MafiaG.Server"
-					);
-					pb.inheritIO();
-					pb.start();
+		                    System.out.println("  사용될 서버 클래스패스: " + classPath); // 설정값 로그 확인
 
-					System.out.println("서버 실행 성공 (프로세스 시작됨)");
+							ProcessBuilder pb = new ProcessBuilder(
+							    "java",
+							    "-cp",
+							    classPath, // 조합된 클래스패스 사용
+							    "MafiaG.Server"
+							);
+							pb.inheritIO();
+							pb.start();
 
-					// 서버 부팅 대기 시간
-					try {
-						Thread.sleep(1500); // 1.5초 대기
-					} catch (InterruptedException ex) {
-						ex.printStackTrace();
-                        Thread.currentThread().interrupt();
+							System.out.println("서버 실행 성공 (프로세스 시작됨)");
+							Thread.sleep(1500); // 서버 부팅 대기
+
+						} catch (IOException | InterruptedException ex) {
+		                    ex.printStackTrace();
+		                    JOptionPane.showMessageDialog(null, "서버 실행 중 오류 발생: " + ex.getMessage());
+		                    if (ex instanceof InterruptedException) Thread.currentThread().interrupt();
+		                    return; // 서버 실행 실패 시 PlayUI로 넘어가지 않음
+						}
+		                // --- 서버 실행 로직 끝 ---
+
+						// --- PlayUI 호출 시 실제 닉네임과 랭킹 전달 ---
+						final String finalNickname = loggedInNickname;
+						final int finalRank = myRank;
+						SwingUtilities.invokeLater(() -> {
+		                    // PlayUI 생성자에 실제 닉네임과 랭킹 전달
+							PlayUI playUI = new PlayUI(finalNickname, finalRank); // <<--- 생성자 파라미터 변경됨!
+							playUI.setVisible(true);
+						});
+		                // --- PlayUI 호출 끝 ---
+
+					} else {
+						errorLabel.setVisible(true);
 					}
-
-				} catch (IOException ex) {
-					ex.printStackTrace();
-					JOptionPane.showMessageDialog(null, "서버 실행에 실패했습니다: " + ex.getMessage());
-                    return; // 서버 실행 실패 시 더 이상 진행하지 않음
-				}
-                // --- 서버 실행 로직 끝 ---
-
-				// --- PlayUI 호출 시 실제 닉네임 전달 ---
-				final String finalNickname = nickname; // 람다 내부에서 사용하기 위해 final 변수로
-				SwingUtilities.invokeLater(() -> {
-                    // PlayUI 생성자에 실제 닉네임(finalNickname) 전달
-					PlayUI playUI = new PlayUI(finalNickname);
-					playUI.setVisible(true);
-				});
-                // --- PlayUI 호출 끝 ---
-
-			} else {
-				errorLabel.setVisible(true);
-			}
-		}); // end of loginBtn.addActionListener
+				}); // end of loginBtn.addActionListener
 
 		signupBtn.addActionListener(e -> {
 			frame.dispose();
