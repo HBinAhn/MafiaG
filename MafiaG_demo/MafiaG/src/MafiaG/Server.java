@@ -294,15 +294,6 @@ public class Server {
         // 점수 업데이트 로직 호출 (실제 닉네임 리스트 전달)
         updateScores(winnerPermNicknames, participantPermNicknames); // <<--- 파라미터 변경됨!
 
-        // --- ❗ 게임 상태 리셋 로직 추가 ❗ ---
-        new Timer().schedule(new TimerTask() {
-            @Override
-            public void run() {
-                System.out.println("[서버] 게임 상태 초기화 수행...");
-                resetGameState(); // 게임 상태 리셋
-            }
-        }, 5000); // 예: 5초 후 리셋 (결과 확인 시간 부여)
-        // --- 리셋 로직 끝 ---
     }
 
 
@@ -499,35 +490,7 @@ public class Server {
         int end = json.indexOf("\"", start + 1);
         return json.substring(start + 1, end);
     }
-    
- // 기존 코드 아래에 추가
-    static void handleTryAgain() {
-        // 게임 상태 초기화
-        resetGameState();
-
-        // 새로운 게임 시작 메시지 브로드캐스트
-        broadcast("{\"type\":\"GAME_START\"}");
-
-        // 새로운 질문을 시작
-        startNextQuestion();
-        
-        // 타이머를 새로 설정
-        startNewRoundTimer();
-    }
-
-    // 게임 상태 초기화 메서드
-    static void resetGameState() {
-        questionCount = 0;
-        usedQuestions.clear();
-        totalVoteMap.clear(); // 누적 투표 초기화
-        voteMap.clear();
-        votedUsers.clear();
-        answers.clear();
-        resultRevealed = false;
-        gameStarted = false;
-        readyCount = 0; // <<<--- 준비 카운트 초기화 추가!
-        System.out.println("[서버] 게임 상태가 초기화되었습니다.");
-    }
+  
 
     // 새로운 라운드를 위한 타이머 설정
     static void startNewRoundTimer() {

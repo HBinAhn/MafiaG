@@ -65,7 +65,6 @@ public class MafiaGResult extends JFrame {
 		buttonPanel.setOpaque(false);
 
 		JButton quitButton = new JButton();
-		JButton againButton = new JButton();
 
 		// 아이콘
 		ImageIcon quitIcon = new ImageIcon("src/img/quit_button.png");
@@ -75,22 +74,16 @@ public class MafiaGResult extends JFrame {
 		Image resizedPlay = playIcon.getImage().getScaledInstance(200, 100, Image.SCALE_SMOOTH);
 
 		quitButton.setIcon(new ImageIcon(resizedQuit));
-		againButton.setIcon(new ImageIcon(resizedPlay));
 
 		quitButton.setPreferredSize(new Dimension(150, 110));
-		againButton.setPreferredSize(new Dimension(200, 100));
 
 		quitButton.setBorderPainted(false);
 		quitButton.setContentAreaFilled(false);
 		quitButton.setFocusPainted(false);
 
-		againButton.setBorderPainted(false);
-		againButton.setContentAreaFilled(false);
-		againButton.setFocusPainted(false);
 
-		quitButton.addActionListener(e -> logoutAndExit());
+		quitButton.addActionListener(e -> logoutAndExit()); {
 		// "try again" 버튼 클릭 시 게임을 다시 시작하는 로직 추가
-		againButton.addActionListener(e -> {
 			dispose(); // 현재 게임 결과 화면을 닫고
 
 			// --- ❗ PlayUI 생성자에 사용자 이름(실제 닉네임) 전달 ❗ ---
@@ -106,10 +99,9 @@ public class MafiaGResult extends JFrame {
 				System.exit(1); // 또는 프로그램 종료
 			}
 			// --- 수정 끝 ---
-		});
+		};
 
-		buttonPanel.add(quitButton, BorderLayout.WEST);
-		buttonPanel.add(againButton, BorderLayout.EAST);
+		buttonPanel.add(quitButton, BorderLayout.EAST);
 
 		contentPane.add(buttonPanel, BorderLayout.SOUTH);
 
@@ -129,9 +121,9 @@ public class MafiaGResult extends JFrame {
 		if (isGeminiWinner) {
 			return "Gemini 승리!";
 		} else if (isPlayerWinner) {
-			return "참여자 승리!";
+			return "당신은 AI를 지배하는 자";
 		} else if (isPlayerLoser) {
-			return "참여자 패배...";
+			return "Gemini가 되지 못하였습니다.";
 		} else {
 			return "게임 종료";
 		}
@@ -140,7 +132,7 @@ public class MafiaGResult extends JFrame {
 	// 게임 결과에 따른 이미지 반환
 	private String getImagePath(boolean isGeminiWinner, boolean isPlayerWinner, boolean isPlayerLoser) {
 		if (isGeminiWinner) {
-			return "src/img/victory.png"; // Gemini 승리 이미지
+			return "src/img/defeat.png"; // Gemini 승리 이미지
 		} else if (isPlayerWinner) {
 			return "src/img/victory.png"; // 참여자 승리 이미지
 		} else if (isPlayerLoser) {
@@ -151,7 +143,7 @@ public class MafiaGResult extends JFrame {
 	}
 
 	private void logoutAndExit() {
-		DatabaseManager.logoutUser(username);
+//		DatabaseManager.logoutUser(username);
 		JOptionPane.showMessageDialog(null, "로그아웃 되었습니다!");
 		System.exit(0);
 	}

@@ -239,17 +239,17 @@ public class DatabaseManager {
 
 
 	// 로그아웃 처리
-	public static void logoutUser(String username) {
-		try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
-			 PreparedStatement pstmt = conn.prepareStatement(
-					 "UPDATE member SET last_login = NOW() WHERE member_id = ?")) {
-
-			pstmt.setString(1, username);
-			pstmt.executeUpdate();
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-	}
+//	public static void logoutUser(String username) {
+//		try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+//			 PreparedStatement pstmt = conn.prepareStatement(
+//					 "UPDATE member SET last_login = NOW() WHERE member_id = ?")) {
+//
+//			pstmt.setString(1, username);
+//			pstmt.executeUpdate();
+//		} catch (SQLException e) {
+//			e.printStackTrace();
+//		}
+//	}
 
 	// 랭킹 상위 유저 n명 가져오기
 	public static List<UserScore> getTopRankers(int limit) {

@@ -36,6 +36,7 @@ import javax.swing.JTextField;
 import javax.swing.JTextPane;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 import javax.swing.border.EmptyBorder;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.SimpleAttributeSet;
@@ -326,19 +327,55 @@ public class PlayUI extends JFrame implements ActionListener {
 								}
 							});
 						}
-						// 3. 질문 단계 (QUESTION_PHASE) 메시지 처리
-						else if (finalLine.contains("\"type\":\"QUESTION_PHASE\"")) {
-							// ... (기존 QUESTION_PHASE 처리 로직 동일) ...
-							String question = extractValue(finalLine, "question");
-							SwingUtilities.invokeLater(() -> {
-								appendAnonymousChat("#444444", "❓ 질문: " + question);
-								chatInput.setEnabled(true);
-								chatInput.setBackground(Color.WHITE);
-								chatInput.requestFocus();
-								new Thread(() -> {
-									/* ... 타이머 로직 ... */ }).start();
-							});
-						}
+						 // 3. 질문 단계 (QUESTION_PHASE) 메시지 처리 (로그 추가 버전)
+                        else if (finalLine.contains("\"type\":\"QUESTION_PHASE\"")) {
+                            String question = extractValue(finalLine, "question");
+                            SwingUtilities.invokeLater(() -> {
+                                appendAnonymousChat("#444444", "❓ 질문: " + question);
+                                chatInput.setEnabled(true); chatInput.setBackground(Color.WHITE); chatInput.requestFocus();
+
+                                // --- 타이머 로직 (로그 추가) ---
+                                new Thread(() -> { // 타이머 실행 스레드
+                                    System.out.println("[클라이언트 타이머] 스레드 시작!"); // 스레드 시작 확인
+                                    SwingUtilities.invokeLater(() -> {
+                                        timerLabel.setVisible(true);
+                                    });
+
+                                    for (int i = 20; i >= 0; i--) {
+                                        final int sec = i; // 람다에서 사용하기 위해 final
+
+                                        // --- ❗ invokeLater 내부 로그 추가 ❗ ---
+                                        SwingUtilities.invokeLater(() -> {
+                                            try {
+                                                timerLabel.setText("남은 시간: " + sec + "초");
+                                            } catch (Exception e) {
+                                                // 라벨 업데이트 중 예외 발생 시 로그 출력
+                                                System.err.println("  -> EDT: timerLabel 업데이트 중 오류 발생!");
+                                                e.printStackTrace();
+                                            }
+                                        });
+                                        // --- 로그 추가 끝 ---
+
+                                        try {
+                                            Thread.sleep(1000);
+                                        } catch (InterruptedException ex) {
+                                            System.out.println("[클라이언트] 타이머 스레드 중단됨.");
+                                            Thread.currentThread().interrupt();
+                                            break;
+                                        }
+                                    }
+                                    // 타이머 종료 후 처리
+                                    SwingUtilities.invokeLater(() -> {
+                                        System.out.println("[클라이언트 타이머] 시간 종료 처리.");
+                                        timerLabel.setText("시간 종료");
+                                        chatInput.setEnabled(false);
+                                        chatInput.setBackground(Color.LIGHT_GRAY);
+                                    });
+                                    System.out.println("[클라이언트 타이머] 스레드 종료.");
+                                }).start(); // 스레드 시작!
+                                // --- 타이머 로직 끝 ---
+                            });
+                        } // end of QUESTION_PHASE handling
 						// 4. 일반 채팅 (chat) 메시지 처리
 						else if (finalLine.contains("\"type\":\"chat\"")) {
 							// ... (기존 chat 처리 로직 동일) ...
@@ -431,61 +468,64 @@ public class PlayUI extends JFrame implements ActionListener {
 									/* ... 오류 처리 ... */ }
 							});
 						}
-						// 8. 최종 결과 (FINAL_RESULT) 메시지 처리
-						else if (finalLine.contains("\"type\":\"FINAL_RESULT\"")) {
-							// 서버가 보낸 JSON에서 정보 추출
-							String displayMsg = extractValue(finalLine, "message");
-							List<String> winners = parseJsonList(finalLine, "winners"); // 승자 목록 파싱
-							List<String> participants = parseJsonList(finalLine, "participants"); // 참가자 목록 파싱
-							System.out.println("[클라이언트] Parsed winners: " + winners);
-							System.out.println("[클라이언트] Parsed participants: " + participants);
+						// 8. 최종 결과 (FINAL_RESULT) 메시지 처리 (화면 전환 지연 추가)
+                        else if (finalLine.contains("\"type\":\"FINAL_RESULT\"")) {
+                            // 서버가 보낸 JSON에서 정보 추출
+                            final String displayMsg = extractValue(finalLine, "message"); // 람다에서 사용 위해 final
+                            final List<String> winners = parseJsonList(finalLine, "winners"); // final
+                            final List<String> participants = parseJsonList(finalLine, "participants"); // final
+                            System.out.println("[클라이언트] Parsed winners: " + winners);
+                            System.out.println("[클라이언트] Parsed participants: " + participants);
 
-							// 최종 결과 메시지 표시 및 UI 비활성화 (EDT)
-							SwingUtilities.invokeLater(() -> {
-								System.out.println("[클라이언트] 최종 결과 수신 처리 시작 (EDT)");
-								appendAnonymousChat("#FF0000", displayMsg != null ? displayMsg : "게임 종료!");
+                            // --- ❗ EDT에서 UI 업데이트 및 타이머 시작 ❗ ---
+                            SwingUtilities.invokeLater(() -> {
+                                System.out.println("[클라이언트] 최종 결과 수신 처리 시작 (EDT)");
+                                // 1. 최종 결과 메시지를 채팅창에 표시
+                                appendAnonymousChat("#FF0000", displayMsg != null ? displayMsg : "게임 종료!");
 
-								// UI 비활성화
-								chatInput.setEnabled(false);
-								chatInput.setBackground(Color.LIGHT_GRAY);
-								voteChoice.setEnabled(false);
-								voteBtn.setEnabled(false);
-								startButton.setEnabled(false);
-								startButton.setText("게임 종료");
-								timerLabel.setText("게임 종료");
-								timerLabel.setVisible(true);
+                                // 2. UI 비활성화 (게임 종료 상태 표시)
+                                chatInput.setEnabled(false); chatInput.setBackground(Color.LIGHT_GRAY);
+                                voteChoice.setEnabled(false); voteBtn.setEnabled(false);
+                                startButton.setEnabled(false); startButton.setText("게임 종료");
+                                timerLabel.setText("게임 종료"); timerLabel.setVisible(true);
 
-								// --- ❗ 승/패 화면 전환 로직 ❗ ---
-								System.out.println("[클라이언트] 결과 화면 전환 시도...");
-								// 내 닉네임과 파싱된 리스트가 유효한지 확인
-								if (permanentNickname != null && winners != null && participants != null) {
-									try {
-										// MafiaGResult 창 생성 및 표시 (내 닉네임, 승자 목록, 참가자 목록 전달)
-										new MafiaGResult(permanentNickname, winners, participants);
-										System.out.println("[클라이언트] MafiaGResult 창 생성 완료.");
-										// 현재 PlayUI 창 닫기
-										dispose(); // <<--- 현재 창 닫기
-										System.out.println("[클라이언트] PlayUI 창 닫기 완료.");
-									} catch (Exception e) {
-										System.err.println("[클라이언트 오류] MafiaGResult 생성 또는 PlayUI 닫기 중 오류 발생");
-										e.printStackTrace();
-										JOptionPane.showMessageDialog(PlayUI.this, "결과 화면 전환 중 오류가 발생했습니다.", "오류",
-												JOptionPane.ERROR_MESSAGE);
-										closeConnection();
-										dispose();
-										System.exit(1);
-									}
-								} else {
-									System.err.println("[클라이언트 오류] 결과 화면 전환에 필요한 정보 부족.");
-									JOptionPane.showMessageDialog(PlayUI.this, "결과 처리 중 오류가 발생했습니다.", "오류",
-											JOptionPane.ERROR_MESSAGE);
-									closeConnection();
-									dispose();
-									System.exit(1);
-								}
-								// --- 화면 전환 로직 끝 ---
-							});
-						} // end of FINAL_RESULT handling
+                                System.out.println("[클라이언트] 5초 후 결과 화면 전환 타이머 시작...");
+
+                                // 3. 5초 지연을 위한 Swing Timer 생성
+                                Timer timer = new Timer(5000, new ActionListener() { // 5000ms = 5초
+                                    @Override
+                                    public void actionPerformed(ActionEvent e) {
+                                        // --- 5초 후 실행될 코드 ---
+                                        System.out.println("[클라이언트 타이머] 5초 경과, 결과 화면 전환 실행.");
+                                        // 내 닉네임과 파싱된 리스트가 유효한지 확인
+                                        if (permanentNickname != null && winners != null && participants != null) {
+                                            try {
+                                                // MafiaGResult 창 생성 및 표시
+                                                new MafiaGResult(permanentNickname, winners, participants);
+                                                System.out.println("[클라이언트] MafiaGResult 창 생성 완료.");
+                                                // 현재 PlayUI 창 닫기
+                                                dispose();
+                                                System.out.println("[클라이언트] PlayUI 창 닫기 완료.");
+                                            } catch (Exception ex) {
+                                                 System.err.println("[클라이언트 오류] MafiaGResult 생성 또는 PlayUI 닫기 중 오류 발생");
+                                                 ex.printStackTrace();
+                                                 JOptionPane.showMessageDialog(PlayUI.this, "결과 화면 전환 중 오류가 발생했습니다.", "오류", JOptionPane.ERROR_MESSAGE);
+                                                 closeConnection(); dispose(); System.exit(1);
+                                            }
+                                        } else {
+                                             System.err.println("[클라이언트 오류] 결과 화면 전환에 필요한 정보 부족.");
+                                             JOptionPane.showMessageDialog(PlayUI.this, "결과 처리 중 오류가 발생했습니다.", "오류", JOptionPane.ERROR_MESSAGE);
+                                             closeConnection(); dispose(); System.exit(1);
+                                        }
+                                        // --- 5초 후 실행될 코드 끝 ---
+                                    }
+                                });
+                                timer.setRepeats(false); // 타이머가 한 번만 실행되도록 설정
+                                timer.start(); // 타이머 시작!
+                                // --- 타이머 설정 끝 ---
+
+                            }); // --- EDT 작업 끝 ---
+                        } // end of FINAL_RESULT handling
 
 						// 9. 게임 오버 (GAME_OVER) 메시지 처리
 						else if (finalLine.contains("\"type\":\"GAME_OVER\"")) {
