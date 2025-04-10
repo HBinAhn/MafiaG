@@ -166,39 +166,76 @@ public class DatabaseManager {
 		return score;
 	}
 
-	// 게임 종료 후 점수 반영 (Gemini 제외, 동점자 모두 승리 처리)
-	public static void updateScoresAfterGame(List<String> winners, List<String> participants) {
-	    try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
-	        for (String player : participants) {
-	            if (player.equals("Gemini")) continue;
+	// 게임 종료 후 점수 반영 (내부적으로 member_id 사용하도록 수정)
+    public static void updateScoresAfterGame(List<String> winners, List<String> participants) {
+        // winners 리스트에는 승리한 사람들의 '닉네임'이 포함됨 (Gemini 포함 가능)
+        // participants 리스트에는 Gemini를 제외한 실제 플레이어들의 '닉네임'이 포함됨
 
-	            int scoreChange = 0;
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+            // Gemini 승리 여부 확인 (winners 리스트에 Gemini 닉네임이 있는지 확인)
+            // 서버에서 Gemini 닉네임을 어떻게 관리하는지 확인 필요 (예: "Gemini" 또는 "익명1")
+            // 여기서는 "Gemini" 문자열로 가정
+            boolean geminiWins = winners.contains("Gemini"); // 서버에서 Gemini 닉네임 확인 필요
 
-	            if (winners.contains("Gemini")) {
-	                // Gemini가 포함된 승리자일 경우: 나머지 전부 -1점
-	                scoreChange = -1;
-	            } else {
-	                // 일반 참여자 중 승자: +5점 / 나머지: -1점
-	                if (winners.contains(player)) {
-	                    scoreChange = 5;
-	                } else {
-	                    scoreChange = -1;
-	                }
-	            }
+            System.out.println("[DB] 점수 업데이트 시작. Gemini 승리 여부: " + geminiWins);
+            System.out.println("[DB] 승자 목록(닉네임): " + winners);
+            System.out.println("[DB] 참가자 목록(닉네임): " + participants);
 
-	            // 점수 업데이트
-	            try (PreparedStatement pstmt = conn.prepareStatement(
-	                    "UPDATE member SET score = score + ? WHERE member_id = ?")) {
-	                pstmt.setInt(1, scoreChange);
-	                pstmt.setString(2, player);
-	                pstmt.executeUpdate();
-	            }
-	        }
-	    } catch (SQLException e) {
-	        e.printStackTrace();
-	    }
-	}
 
+            // 참가자(플레이어)들 점수 업데이트
+            for (String playerNickname : participants) {
+                // 참가자 닉네임으로 member_id 조회
+                String memberId = getMemberIdFromNickname(playerNickname);
+
+                // member_id가 유효하지 않으면(null이면) 해당 플레이어는 건너뜀
+                if (memberId == null) {
+                    System.err.println("[DB] 플레이어 '" + playerNickname + "'의 member_id를 찾을 수 없어 점수 업데이트를 건너<0xEB><0x8A>니다.");
+                    continue;
+                }
+
+                int scoreChange = 0; // 점수 변동량
+
+                // 점수 계산 로직 (사용자가 마지막으로 제공한 DatabaseManager 코드 기준)
+                if (geminiWins) {
+                    // Gemini가 승리한 경우: 모든 참가자에게 -2점 부여
+                    scoreChange = -2;
+                } else {
+                    // 플레이어가 승리한 경우:
+                    if (winners.contains(playerNickname)) { // 현재 플레이어가 승자 목록에 있는지 확인
+                        // 동점자 승리 시 +3점
+                        scoreChange = 3;
+                    } else {
+                        // 승자가 아니면(패배자) -1점
+                        scoreChange = -1;
+                    }
+                }
+
+                // 점수 업데이트 SQL (WHERE 절을 member_id 기준으로 변경)
+                String sql = "UPDATE member SET score = score + ? WHERE member_id = ?";
+                try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                    pstmt.setInt(1, scoreChange);
+                    pstmt.setString(2, memberId); // 조회한 member_id 사용
+                    int updatedRows = pstmt.executeUpdate();
+
+                    if (updatedRows > 0) {
+                        System.out.println("[DB] 점수 업데이트 성공: Nick=" + playerNickname + ", ID=" + memberId + ", 변경=" + scoreChange);
+                    } else {
+                        System.err.println("[DB 경고] 점수 업데이트 실패 (업데이트된 행 없음): Nick=" + playerNickname + ", ID=" + memberId);
+                    }
+
+                } catch (SQLException e) {
+                     System.err.println("[DB 오류] 점수 업데이트 실행 중 오류: Nick=" + playerNickname + ", ID=" + memberId);
+                     e.printStackTrace();
+                }
+            } // end of participant loop
+
+            System.out.println("[DB] 모든 참가자 점수 업데이트 완료.");
+
+        } catch (SQLException e) {
+            System.err.println("[DB 오류] DB 연결 또는 주요 로직 처리 중 오류 발생");
+            e.printStackTrace();
+        }
+    } // end of updateScoresAfterGame
 
 
 	// 로그아웃 처리
@@ -236,4 +273,32 @@ public class DatabaseManager {
 
 		return rankers;
 	}
+	
+    // === 새로운 메소드: 닉네임으로 member_id 찾기 ===
+    public static String getMemberIdFromNickname(String nickname) {
+        // Gemini 또는 닉네임이 없는 경우 처리 (필요에 따라)
+        if (nickname == null || nickname.startsWith("익명") || nickname.equals("Gemini")) {
+             // Gemini나 익명 유저는 member 테이블에 ID가 없을 수 있으므로 null 반환 또는 예외 처리
+             return null;
+        }
+
+        String sql = "SELECT member_id FROM member WHERE nickname = ?";
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, nickname);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getString("member_id");
+            } else {
+                // 해당 닉네임의 사용자를 찾을 수 없는 경우
+                System.err.println("[DB 경고] 닉네임 '" + nickname + "'에 해당하는 member_id를 찾을 수 없습니다.");
+                return null;
+            }
+        } catch (SQLException e) {
+            System.err.println("[DB 오류] 닉네임으로 member_id 조회 중 오류 발생: " + nickname);
+            e.printStackTrace();
+            return null;
+        }
+    }
 }

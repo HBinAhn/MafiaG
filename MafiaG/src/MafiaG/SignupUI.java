@@ -15,7 +15,6 @@ public class SignupUI extends JFrame {
         JPanel contentPane = new JPanel();
         contentPane.setBackground(new Color(248, 248, 248));
         contentPane.setLayout(new GridBagLayout());
-        setContentPane(contentPane);
 
         JPanel centerBox = new JPanel();
         centerBox.setPreferredSize(new Dimension(560, 600));

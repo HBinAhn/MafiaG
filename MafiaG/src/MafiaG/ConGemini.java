@@ -55,6 +55,6 @@ public class ConGemini {
         if (start != -1 && end != -1 && end > start) {
             return json.substring(start, end).replace("\\n", "\n");
         }
-        return "ì‘ë‹µ íŒŒì‹± ì‹¤íŒ¨: " + json;
+        return "ÀÀ´ä ÆÄ½Ì ½ÇÆĞ: " + json;
     }
 }
